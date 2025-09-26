@@ -65,7 +65,7 @@ export default function AddTaskScreen({ navigation, route }) {
       reminder: reminder,
     };
 
-    saveTasks([...tasks, newTask]);
+    saveTasks([newTask, ...tasks]);
     navigation.goBack();
   };
 

@@ -1,5 +1,5 @@
 // HomeScreen.js
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,10 +12,10 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Notifications from "expo-notifications";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SwipeListView } from "react-native-swipe-list-view";
+import { Calendar } from "react-native-calendars";
 import {
   useFonts,
   Poppins_400Regular,
@@ -28,10 +28,8 @@ export default function HomeScreen({ navigation }) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState("Today"); // "Today" | "All"
+  const [filterMode, setFilterMode] = useState("Today"); // Today | All
   const [showFilter, setShowFilter] = useState(false);
-
-  // Delete modal state
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
 
@@ -52,16 +50,15 @@ export default function HomeScreen({ navigation }) {
     loadTasks();
   }, []);
 
-  // keep tasks sorted: incomplete first, completed last
   const sortTasks = (arr) =>
-    arr
-      .slice()
-      .sort((a, b) => {
-        const A = a.completed ? 1 : 0;
-        const B = b.completed ? 1 : 0;
-        if (A === B) return 0;
-        return A - B;
-      });
+  arr
+    .slice()
+    .sort((a, b) => {
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1;
+      }
+      return b.id.localeCompare(a.id);
+    });
 
   const loadTasks = async () => {
     const stored = await AsyncStorage.getItem("tasks");
@@ -71,16 +68,10 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // saveTasks will sort then persist
   const saveTasks = async (newTasks) => {
     const sorted = sortTasks(newTasks);
     setTasks(sorted);
     await AsyncStorage.setItem("tasks", JSON.stringify(sorted));
-  };
-
-  const onDateChange = (event, date) => {
-    setShowCalendar(false);
-    if (date) setSelectedDate(date);
   };
 
   const toggleComplete = (task) => {
@@ -96,7 +87,6 @@ export default function HomeScreen({ navigation }) {
     );
     saveTasks(updatedTasks);
 
-    // schedule only when turning ON and dueDate exists
     if (!task.reminder && task.dueDateTime) {
       try {
         await Notifications.scheduleNotificationAsync({
@@ -115,7 +105,7 @@ export default function HomeScreen({ navigation }) {
 
   if (!fontsLoaded) return null;
 
-  // Today's tasks
+  // Filter tasks for selected date
   const todaysTasks = tasks.filter((t) => {
     if (!t.dueDateTime) return false;
     const taskDate = new Date(t.dueDateTime);
@@ -126,20 +116,16 @@ export default function HomeScreen({ navigation }) {
     );
   });
 
-  // Base tasks (Today or All)
   const filteredBaseTasks = filterMode === "Today" ? todaysTasks : tasks;
 
-  // Search filter (case-insensitive)
   const searchedTasks = filteredBaseTasks.filter(
     (t) =>
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Stats
   const totalToday = todaysTasks.length;
   const completedToday = todaysTasks.filter((t) => t.completed).length;
-
   const totalAll = tasks.length;
   const completedAll = tasks.filter((t) => t.completed).length;
 
@@ -147,71 +133,70 @@ export default function HomeScreen({ navigation }) {
   const completedCount = filterMode === "Today" ? completedToday : completedAll;
   const progress = totalCount ? (completedCount / totalCount) * 100 : 0;
 
-  // --- SwipeListView renderers ---
-  const renderItem = ({ item }) => {
-    return (
-      <TouchableOpacity
-  style={[
-    styles.taskItem,
-    item.completed && styles.completedTaskItem // custom style
-  ]}
-  disabled={!!item.completed}
-  onPress={() =>
-    navigation.navigate("TaskView", { task: item, saveTasks, tasks })
-  }
->
-        <View style={styles.taskRow}>
-          <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
-            {item.title}
-          </Text>
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={[styles.taskItem, item.completed && styles.completedTaskItem]}
+      disabled={!!item.completed}
+      onPress={() =>
+        navigation.navigate("TaskView", { task: item, saveTasks, tasks })
+      }
+    >
+      <View style={styles.taskRow}>
+        <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
+          {item.title}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {item.completed ? (
+            <Text style={{ color: "green", fontFamily: "Poppins_600SemiBold" }}>
+              Completed
+            </Text>
+          ) : (
+            <>
+              <TouchableOpacity onPress={() => toggleComplete(item)}>
+                <Ionicons
+                  name="square-outline"
+                  size={22}
+                  color="#777"
+                  style={{ marginLeft: 10 }}
+                />
+              </TouchableOpacity>
 
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity onPress={() => toggleComplete(item)}>
-              <Ionicons
-                name={item.completed ? "checkbox-outline" : "square-outline"}
-                size={22}
-                color={item.completed ? "#9580FA" : "#777"}
-                style={{ marginLeft: 10 }}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => toggleReminder(item)}>
-              <Ionicons
-                name={item.reminder ? "alarm-outline" : "time-outline"}
-                size={22}
-                color={item.reminder ? "tomato" : "#777"}
-                style={{ marginLeft: 10 }}
-              />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={() => toggleReminder(item)}>
+                <Ionicons
+                  name={item.reminder ? "alarm-outline" : "time-outline"}
+                  size={22}
+                  color={item.reminder ? "tomato" : "#777"}
+                  style={{ marginLeft: 10 }}
+                />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
+      </View>
 
-        <View style={styles.descRow}>
-          <Text style={styles.taskDescription}>
-            {item.description || "No description"}
-          </Text>
-          <Text style={styles.taskTime}>
-            {item.dueDateTime
-              ? new Date(item.dueDateTime).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : ""}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+      <View style={styles.descRow}>
+        <Text style={styles.taskDescription} numberOfLines={1} ellipsizeMode="tail">
+          {!item.description || item.description.trim() === "" ? "No description" : item.description}
+        </Text>
 
-  const renderHiddenItem = (data, rowMap) => {
-  return (
+        <Text style={styles.taskTime}>
+          {item.dueDateTime
+            ? new Date(item.dueDateTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+            : ""}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderHiddenItem = (data, rowMap) => (
     <View style={styles.rowBack}>
       <TouchableOpacity
         style={styles.hiddenDelete}
         onPress={() => {
-          if (rowMap[data.item.id]) {
-            rowMap[data.item.id].closeRow();
-          }
+          if (rowMap[data.item.id]) rowMap[data.item.id].closeRow();
           setTaskToDelete(data.item);
           setDeleteModalVisible(true);
         }}
@@ -220,7 +205,6 @@ export default function HomeScreen({ navigation }) {
       </TouchableOpacity>
     </View>
   );
-};
 
   const confirmDelete = async () => {
     if (!taskToDelete) return;
@@ -230,12 +214,23 @@ export default function HomeScreen({ navigation }) {
     setDeleteModalVisible(false);
   };
 
+  // --- Create marked dates for calendar ---
+  const markedDates = {};
+  tasks.forEach((t) => {
+    if (t.dueDateTime) {
+      const date = new Date(t.dueDateTime).toISOString().split("T")[0];
+      markedDates[date] = { marked: true, dotColor: "green" };
+    }
+  });
+  markedDates[selectedDate.toISOString().split("T")[0]] = {
+    ...(markedDates[selectedDate.toISOString().split("T")[0]] || {}),
+    selected: true,
+    selectedColor: "green",
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar
-        backgroundColor="#f8f9fa"
-        barStyle="dark-content"
-      />
+      <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -245,7 +240,12 @@ export default function HomeScreen({ navigation }) {
 
         <View style={{ flexDirection: "row" }}>
           <TouchableOpacity onPress={() => navigation.navigate("Notifications")}>
-            <Ionicons name="notifications-outline" size={26} color="black" style={{ marginRight: 20 }} />
+            <Ionicons
+              name="notifications-outline"
+              size={26}
+              color="black"
+              style={{ marginRight: 20 }}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setShowCalendar(true)}>
@@ -254,13 +254,49 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
+      {/* In-app Calendar Modal */}
       {showCalendar && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          onChange={onDateChange}
-        />
+        <Modal
+          transparent
+          animationType="fade"
+          visible={showCalendar}
+          onRequestClose={() => setShowCalendar(false)}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)" }}
+            activeOpacity={1}
+            onPressOut={() => setShowCalendar(false)}
+          />
+          <View
+            style={{
+              position: "absolute",
+              top: 200,
+              left: 20,
+              right: 20,
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 10,
+              elevation: 5,
+            }}
+          >
+            <Calendar
+              current={selectedDate.toISOString().split("T")[0]}
+              onDayPress={(day) => {
+                setSelectedDate(new Date(day.dateString));
+                setShowCalendar(false);
+              }}
+              markedDates={markedDates}
+              theme={{
+                todayTextColor: "tomato",
+                // todayBackgroundColor: "green",
+                selectedDayBackgroundColor: "#9580FA",
+                selectedDayTextColor: "#fff",
+                dayTextColor: "#333",
+                textDisabledColor: "#ccc",
+              }}
+            />
+          </View>
+        </Modal>
       )}
 
       {/* Greeting */}
@@ -268,30 +304,28 @@ export default function HomeScreen({ navigation }) {
         <Text style={[styles.greetingText, { fontFamily: "Poppins_600SemiBold" }]}>
           Hello! {username}
         </Text>
-
         {filterMode === "Today" ? (
           <Text style={{ color: "#777", fontFamily: "Poppins_400Regular" }}>
-            Added {totalToday} Task{totalToday === 1 || totalToday === 0 ? "" : "s"} today
+            Added {totalToday} Task{totalToday !== 1 ? "s" : ""} today
           </Text>
         ) : (
           <Text style={{ color: "#777", fontFamily: "Poppins_400Regular" }}>
             {totalAll} total tasks ({completedAll} completed)
           </Text>
         )}
-
         <Text style={{ fontFamily: "Poppins_400Regular", marginTop: 5 }}>
           Showing tasks for:{" "}
           {filterMode === "Today"
             ? selectedDate.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
             : "All Tasks"}
         </Text>
       </View>
 
-      {/* Search Bar */}
+      {/* Search & Filter */}
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={20} color="#555" style={{ marginLeft: 6 }} />
         <TextInput
@@ -306,14 +340,27 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Filter */}
       {showFilter && (
         <View style={styles.filterBox}>
-          <TouchableOpacity onPress={() => { setFilterMode("Today"); setShowFilter(false); }}>
-            <Text style={[styles.filterOption, filterMode === "Today" && styles.filterActive]}>Today</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setFilterMode("Today");
+              setShowFilter(false);
+            }}
+          >
+            <Text style={[styles.filterOption, filterMode === "Today" && styles.filterActive]}>
+              Today
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { setFilterMode("All"); setShowFilter(false); }}>
-            <Text style={[styles.filterOption, filterMode === "All" && styles.filterActive]}>All</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setFilterMode("All");
+              setShowFilter(false);
+            }}
+          >
+            <Text style={[styles.filterOption, filterMode === "All" && styles.filterActive]}>
+              All
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -324,8 +371,8 @@ export default function HomeScreen({ navigation }) {
       </Text>
       <View style={styles.ongoingCard}>
         <AnimatedCircularProgress
-          size={120}
-          width={12}
+          size={60}
+          width={6}
           fill={progress}
           rotation={0}
           tintColor="tomato"
@@ -338,11 +385,10 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </View>
 
-      {/* Tasks list using SwipeListView */}
+      {/* Tasks list */}
       <Text style={styles.sectionHeader}>
         {filterMode === "Today" ? "Today's Tasks" : "All Tasks"}
       </Text>
-
       {searchedTasks.length === 0 && (
         <Text style={{ textAlign: "center", fontFamily: "Poppins_400Regular" }}>
           No tasks found.
@@ -369,7 +415,7 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </TouchableOpacity>
 
-      {/* Delete confirmation modal (in-app) */}
+      {/* Delete Modal */}
       <Modal visible={deleteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -380,7 +426,13 @@ export default function HomeScreen({ navigation }) {
               Are you sure you want to delete "{taskToDelete?.title}"?
             </Text>
             <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
-              <TouchableOpacity onPress={() => { setDeleteModalVisible(false); setTaskToDelete(null); }} style={{ marginRight: 16 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setDeleteModalVisible(false);
+                  setTaskToDelete(null);
+                }}
+                style={{ marginRight: 16 }}
+              >
                 <Text style={{ color: "#555", fontFamily: "Poppins_600SemiBold" }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={confirmDelete}>
@@ -390,141 +442,32 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f6fa" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
-  },
+  header: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15 },
   greeting: { paddingHorizontal: 20, marginBottom: 15 },
   greetingText: { fontSize: 22 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 4,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 15,
-    elevation: 2,
-  },
-  filterBox: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    borderRadius: 8,
-    elevation: 3,
-    paddingVertical: 8,
-    marginBottom: 10,
-  },
-  filterOption: {
-    fontSize: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    fontFamily: "Poppins_400Regular",
-    color: "#333",
-  },
-  filterActive: {
-    color: "tomato",
-    fontFamily: "Poppins_600SemiBold",
-  },
-  sectionHeader: {
-    marginHorizontal: 20,
-    marginBottom: 10,
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: "#9580FA",
-  },
-  ongoingCard: {
-    backgroundColor: "#fff",
-    padding: 15,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    elevation: 3,
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  progressText: { fontSize: 22, fontFamily: "Poppins_600SemiBold" },
-  taskItem: {
-    backgroundColor: "#fff",
-    padding: 15,
-    marginHorizontal: 20,
-    borderRadius: 10,
-    elevation: 1,
-    marginBottom: 8,
-    maxHeight: 92,
-    overflow: "hidden",
-  },
-  taskRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  taskTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: "Poppins_600SemiBold",
-    marginRight: 10,
-  },
-  descRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 5,
-  },
-  taskDescription: {
-    flex: 1,
-    fontSize: 14,
-    color: "#666",
-    fontFamily: "Poppins_400Regular",
-    marginRight: 10,
-  },
-  taskTime: {
-    fontSize: 12,
-    color: "#555",
-    fontFamily: "Poppins_400Regular",
-  },
-  addButton: {
-    position: "absolute",
-    bottom: 14,
-    alignSelf: "center",
-    backgroundColor: "tomato",
-    paddingVertical: 14,
-    paddingHorizontal: 35,
-    borderRadius: 30,
-    elevation: 5,
-  },
-
-  /* Hidden row (delete) */
-  rowBack: {
-  flex: 1,
-  flexDirection: "row",
-  justifyContent: "flex-end",
-  alignItems: "center",
-  // marginHorizontal: 20,
-  marginBottom: 8,
-  borderRadius: 10,
-},
-  hiddenDelete: {
-    width: 80,
-    alignItems: "center",
-    justifyContent: "center",
-    // backgroundColor: "tomato",
-    height: "100%",
-    borderRadius:10,
-  },
-
-  /* delete modal */
+  searchBar: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", padding: 4, marginHorizontal: 20, borderRadius: 12, marginBottom: 15, elevation: 2 },
+  filterBox: { backgroundColor: "#fff", marginHorizontal: 20, borderRadius: 8, elevation: 3, paddingVertical: 8, marginBottom: 10 },
+  filterOption: { fontSize: 14, paddingVertical: 6, paddingHorizontal: 12, fontFamily: "Poppins_400Regular", color: "#333" },
+  filterActive: { color: "tomato", fontFamily: "Poppins_600SemiBold" },
+  sectionHeader: { marginHorizontal: 20, marginBottom: 10, fontFamily: "Poppins_600SemiBold", fontSize: 16, color: "#9580FA" },
+  ongoingCard: { backgroundColor: "#fff", padding: 15, marginHorizontal: 20, borderRadius: 12, elevation: 3, marginBottom: 20, alignItems: "center" },
+  progressText: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  taskItem: { backgroundColor: "#fff", padding: 15, marginHorizontal: 20, borderRadius: 10, elevation: 1, marginBottom: 8, maxHeight: 92, overflow: "hidden" },
+  completedTaskItem: { backgroundColor: "#f0f0f0" },
+  taskRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  taskTitle: { flex: 1, fontSize: 16, fontFamily: "Poppins_600SemiBold", marginRight: 10 },
+  descRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 5 },
+  taskDescription: { flex: 1, fontSize: 14, color: "#666", fontFamily: "Poppins_400Regular", marginRight: 10 },
+  taskTime: { fontSize: 12, color: "#555", fontFamily: "Poppins_400Regular" },
+  addButton: { position: "absolute", bottom: 14, alignSelf: "center", backgroundColor: "tomato", paddingVertical: 14, paddingHorizontal: 35, borderRadius: 30, elevation: 5 },
+  rowBack: { flex: 1, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 8, borderRadius: 10 },
+  hiddenDelete: { width: 80, alignItems: "center", justifyContent: "center", height: "100%", borderRadius: 10 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
   modalCard: { width: "85%", backgroundColor: "#fff", borderRadius: 12, padding: 16 },
-completedTaskItem: {
-  backgroundColor: "#f0f0f0", // light gray bg
-},
-
 });

@@ -292,6 +292,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: "#ddd",
+    backgroundColor: "#f5f6fa",
     position:"absolute",
     bottom:0,
     left :0,
