@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, Entypo } from "@expo/vector-icons";
+import { Ionicons, Entypo, Feather } from "@expo/vector-icons";
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from "@expo-google-fonts/poppins";
 import { useIsFocused } from "@react-navigation/native";
 
@@ -41,9 +41,9 @@ export default function AllTaskScreen({ navigation }) {
     const backAction = () => {
       if (sortModalVisible) {
         setSortModalVisible(false);
-        return true; // prevent default back
+        return true;
       }
-      return false; // allow default back
+      return false;
     };
 
     const backHandler = BackHandler.addEventListener(
@@ -102,7 +102,7 @@ export default function AllTaskScreen({ navigation }) {
     ) {
       return "Yesterday";
     } else {
-      return null; // actual date will be shown separately
+      return null;
     }
   };
 
@@ -143,8 +143,8 @@ export default function AllTaskScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
-        backgroundColor="#f8f9fa" // same as screen background
-        barStyle="dark-content" // dark icons (time, battery, etc.)
+        backgroundColor="#f8f9fa"
+        barStyle="dark-content"
       />
       {/* Header */}
       <View style={styles.header}>
@@ -167,10 +167,10 @@ export default function AllTaskScreen({ navigation }) {
             <TouchableWithoutFeedback>
               <View style={styles.sortDropdown}>
                 <TouchableOpacity style={styles.modalItem} onPress={sortNewestFirst}>
-                  <Text style={styles.modalText}>Sort by Date (Newest First)</Text>
+                  <Text style={styles.modalText}>Newest Date First</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.modalItem} onPress={sortOldestFirst}>
-                  <Text style={styles.modalText}>Sort by Date (Oldest First)</Text>
+                  <Text style={styles.modalText}>Oldest Date First</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.modalItem} onPress={showUpcomingTasks}>
                   <Text style={styles.modalText}>Upcoming Tasks</Text>
@@ -187,30 +187,91 @@ export default function AllTaskScreen({ navigation }) {
         keyExtractor={(item) => item}
         renderItem={({ item }) => (
           <View>
-            {/* Split day and date */}
-            {item === "Today" || item === "Yesterday" ? (
-              <Text style={styles.dateLabel}>{item}</Text>
-            ) : (
-              <Text style={styles.dateLabel}>{item}</Text>
-            )}
+            <Text style={styles.dateLabel}>{item}</Text>
             {grouped[item].map((task) => (
-              <View key={task.id} style={styles.taskItem}>
-                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16 }}>
-                  {task.title}
-                </Text>
+              <TouchableOpacity
+                key={task.id}
+                style={styles.taskItem}
+                onPress={() => navigation.navigate("TaskView", { task })}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16 }}>
+                    {task.title}
+                  </Text>
+
+                  {task.description ? (
+                    <Text
+                      style={{
+                        fontFamily: "Poppins_400Regular",
+                        fontSize: 14,
+                        color: "#666",
+                        marginTop: 4,
+                        maxHeight: 20, // Approx 1 line height
+                      }}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {task.description}
+                    </Text>
+                  ) : null}
+
+                  {/* Completed label */}
+                  {task.completed && (
+                    <Text
+                      style={{
+                        fontFamily: "Poppins_400Regular",
+                        fontSize: 12,
+                        color: "tomato",
+                        marginTop: 2,
+                      }}
+                    >
+                      Completed
+                    </Text>
+                  )}
+                </View>
+
                 {task.dueDateTime && (
-                  <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: "#666" }}>
+                  <Text
+                    style={{
+                      fontFamily: "Poppins_400Regular",
+                      fontSize: 12,
+                      color: "#666",
+                    }}
+                  >
                     {new Date(task.dueDateTime).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </Text>
                 )}
-              </View>
+                <Feather name="chevron-right" size={20} color="#999" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
             ))}
           </View>
         )}
       />
+    </SafeAreaView>
+  );
+}
+
+export function TaskViewScreen({ route }) {
+  const { task } = route.params;
+
+  return (
+    <SafeAreaView style={{ flex: 1, padding: 20, backgroundColor: "#f5f6fa" }}>
+      <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 22 }}>
+        {task.title}
+      </Text>
+      {task.description && (
+        <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 16, marginTop: 10 }}>
+          {task.description}
+        </Text>
+      )}
+      {task.dueDateTime && (
+        <Text style={{ marginTop: 10, color: "#666", fontFamily: "Poppins_400Regular" }}>
+          {new Date(task.dueDateTime).toLocaleString()}
+        </Text>
+      )}
     </SafeAreaView>
   );
 }
@@ -228,9 +289,9 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_600SemiBold",
   },
   dateLabel: {
-    marginTop: 15,
-    marginBottom: 5,
-    color: "#9580FA",
+    marginTop: 8,
+    marginBottom: 8,
+    color: "green",
     fontFamily: "Poppins_600SemiBold",
     fontSize: 14,
   },
@@ -238,7 +299,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 15,
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 4,
     elevation: 1,
     flexDirection: "row",
     justifyContent: "space-between",
