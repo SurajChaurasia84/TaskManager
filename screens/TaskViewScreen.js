@@ -174,8 +174,7 @@ export default function ViewTaskScreen({ route, navigation }) {
 
       {/* Fixed Bottom Action Bar */}
       <View style={[
-        styles.actionBar,
-        { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 },
+        styles.actionBar
         ]}>
         <TouchableOpacity style={styles.actionButton} onPress={() => setEditing(!editing)}>
           <Ionicons name="create-outline" size={24} color="#9580FA" />

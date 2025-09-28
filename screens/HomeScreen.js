@@ -413,8 +413,7 @@ export default function HomeScreen({ navigation }) {
 
       {/* Add Task */}
       <TouchableOpacity
-        style={[styles.addButton,
-          { paddingBottom: insets.bottom > 0 ? insets.bottom : 8 },
+        style={[styles.addButton
         ]}
         onPress={() => navigation.navigate("AddTask", { saveTasks, tasks })}
       >
@@ -473,7 +472,7 @@ const styles = StyleSheet.create({
   descRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 5 },
   taskDescription: { flex: 1, fontSize: 14, color: "#666", fontFamily: "Poppins_400Regular", marginRight: 10 },
   taskTime: { fontSize: 12, color: "#555", fontFamily: "Poppins_400Regular" },
-  addButton: { position: "absolute", bottom: 14, alignSelf: "center", backgroundColor: "tomato", paddingVertical: 14, paddingHorizontal: 35, borderRadius: 30, elevation: 5 },
+  addButton: {bottom: 14, alignSelf: "center", backgroundColor: "tomato", paddingVertical: 14, paddingHorizontal: 35, borderRadius: 30, elevation: 5 },
   rowBack: { flex: 1, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 8, borderRadius: 10 },
   hiddenDelete: { width: 80, alignItems: "center", justifyContent: "center", height: "100%", borderRadius: 10 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
