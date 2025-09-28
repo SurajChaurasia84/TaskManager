@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   useFonts,
@@ -98,9 +98,25 @@ export default function NotificationsScreen({ navigation }) {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           renderItem={({ item }) => (
-            <View style={styles.reminderItem}>
+            <TouchableOpacity
+              style={styles.reminderItem}
+              onPress={() =>
+                navigation.navigate("TaskView", {
+                  task: item,
+                  saveTasks: async (updatedTasks) => {
+                    await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks));
+                    setTasks(updatedTasks);
+                    loadTasks(); // refresh list after update
+                  },
+                  tasks,
+                })
+              }
+            >
               <Text style={styles.reminderTitle}>{item.title?.toString()}</Text>
-              <Text style={styles.reminderDescription}>
+              <Text style={styles.reminderDescription}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {(item.description || "No description").toString()}
               </Text>
               <Text style={styles.reminderTime}>
@@ -113,8 +129,9 @@ export default function NotificationsScreen({ navigation }) {
                     minute: "2-digit",
                   })
                   .toString()}
+                <Feather name="chevron-right" />
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -159,6 +176,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontFamily: "Poppins_400Regular",
+    maxHeight: 20,
+
   },
   reminderTime: {
     fontSize: 12,

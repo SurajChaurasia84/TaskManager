@@ -1,6 +1,7 @@
 // HomeScreen.js
 import React, { useState, useEffect } from "react";
 import {
+  Pressable,
   View,
   Text,
   TextInput,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView , useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import { SwipeListView } from "react-native-swipe-list-view";
@@ -32,6 +33,7 @@ export default function HomeScreen({ navigation }) {
   const [showFilter, setShowFilter] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const insets = useSafeAreaInsets();
 
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -134,13 +136,17 @@ export default function HomeScreen({ navigation }) {
   const progress = totalCount ? (completedCount / totalCount) * 100 : 0;
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.taskItem, item.completed && styles.completedTaskItem]}
-      disabled={!!item.completed}
-      onPress={() =>
-        navigation.navigate("TaskView", { task: item, saveTasks, tasks })
-      }
-    >
+    <Pressable
+  onPress={() =>
+    navigation.navigate("TaskView", { task: item, saveTasks, tasks })
+  }
+  disabled={!!item.completed}
+  style={({ pressed }) => [
+    styles.taskItem,
+    item.completed && styles.completedTaskItem,
+    pressed && !item.completed && { backgroundColor: "#ecececff" },
+  ]}  
+>
       <View style={styles.taskRow}>
         <Text style={styles.taskTitle} numberOfLines={1} ellipsizeMode="tail">
           {item.title}
@@ -188,7 +194,7 @@ export default function HomeScreen({ navigation }) {
             : ""}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   const renderHiddenItem = (data, rowMap) => (
@@ -407,7 +413,9 @@ export default function HomeScreen({ navigation }) {
 
       {/* Add Task */}
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton,
+          { paddingBottom: insets.bottom > 0 ? insets.bottom : 8 },
+        ]}
         onPress={() => navigation.navigate("AddTask", { saveTasks, tasks })}
       >
         <Text style={{ color: "#fff", fontSize: 16, fontFamily: "Poppins_600SemiBold" }}>

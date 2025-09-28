@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView , useSafeAreaInsets} from "react-native-safe-area-context";
 import {
   useFonts,
   Poppins_400Regular,
@@ -22,11 +22,10 @@ import * as Sharing from "expo-sharing";
 
 export default function ViewTaskScreen({ route, navigation }) {
   const { task, saveTasks, tasks } = route.params;
-
+  const insets = useSafeAreaInsets();
   const [reminder, setReminder] = useState(task.reminder);
   const [modalVisible, setModalVisible] = useState(false);
   const [snapshotUri, setSnapshotUri] = useState(null);
-
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
@@ -42,13 +41,24 @@ export default function ViewTaskScreen({ route, navigation }) {
   if (!fontsLoaded) return null;
 
   const saveEdits = () => {
-    const updatedTasks = tasks.map((t) =>
-      t.id === task.id ? { ...t, title, description } : t
-    );
-    saveTasks(updatedTasks);
-    setEditing(false);
-    setShowDiscardModal(false);
-  };
+  if (!Array.isArray(tasks)) return;
+
+  const updatedTasks = tasks.map((t) =>
+    t.id === task.id ? { ...t, title, description } : t
+  );
+
+  saveTasks(updatedTasks);
+
+  const updatedTask = updatedTasks.find((t) => t.id === task.id);
+  if (updatedTask) {
+    setTitle(updatedTask.title);
+    setDescription(updatedTask.description || "");
+  }
+
+  setEditing(false);
+  setShowDiscardModal(false);
+};
+
 
   const discardEdits = () => {
     setTitle(task.title);
@@ -93,6 +103,8 @@ export default function ViewTaskScreen({ route, navigation }) {
   };
 
   const confirmDelete = () => {
+    if(!Array.isArray(tasks))
+      return;
     const updatedTasks = tasks.filter((t) => t.id !== task.id);
     saveTasks(updatedTasks);
     setShowDeleteModal(false);
@@ -161,7 +173,10 @@ export default function ViewTaskScreen({ route, navigation }) {
       </ViewShot>
 
       {/* Fixed Bottom Action Bar */}
-      <View style={styles.actionBar}>
+      <View style={[
+        styles.actionBar,
+        { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 },
+        ]}>
         <TouchableOpacity style={styles.actionButton} onPress={() => setEditing(!editing)}>
           <Ionicons name="create-outline" size={24} color="#9580FA" />
           <Text style={styles.actionText}>{editing ? "Cancel" : "Edit"}</Text>
@@ -293,10 +308,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#ddd",
     backgroundColor: "#f5f6fa",
-    position:"absolute",
-    bottom:0,
-    left :0,
-    right:0,
   },
   actionButton: { alignItems: "center" },
   actionText: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 4, color: "#333" },

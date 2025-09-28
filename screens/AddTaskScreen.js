@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState , useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar,
   Switch,
+  Animated,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -31,7 +32,7 @@ export default function AddTaskScreen({ navigation, route }) {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState("date"); // date or time
   const [reminder, setReminder] = useState(false);
-
+  const shakeAnim = useRef(new Animated.Value(0)).current;
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -40,7 +41,15 @@ export default function AddTaskScreen({ navigation, route }) {
 
   if (!fontsLoaded) return null;
 
-
+  const triggerShake = () => {
+      shakeAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
+    };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -52,7 +61,10 @@ export default function AddTaskScreen({ navigation, route }) {
   };
 
   const handleAddTask = () => {
-    if (title.trim().length === 0) return alert("Task title required");
+    if (title.trim().length === 0) {
+      triggerShake();
+      return;
+    }
 
     const currentDateTime = new Date();
     const newTask = {
@@ -107,6 +119,7 @@ export default function AddTaskScreen({ navigation, route }) {
       <Text style={styles.heading}>Add New Task</Text>
 
       {/* Title Input */}
+      <Animated.View style={{transform:[{translateX:shakeAnim}], width:"100%"}}>
       <TextInput
         style={styles.input}
         placeholder="Task title*"
@@ -114,6 +127,7 @@ export default function AddTaskScreen({ navigation, route }) {
         value={title}
         onChangeText={setTitle}
       />
+      </Animated.View>
 
       {/* Description Input */}
       <TextInput
