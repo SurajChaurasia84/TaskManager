@@ -25,7 +25,6 @@
     "expo-image-picker": "~17.0.8",
     "expo-navigation-bar": "~5.0.9",
     "expo-notifications": "~0.32.12",
-    "expo-permissions": "^14.4.0",
     "expo-sharing": "^14.0.7",
     "expo-status-bar": "~3.0.8",
     "lodash-es": "^4.17.21",
