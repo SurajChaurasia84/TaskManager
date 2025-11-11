@@ -1,4 +1,4 @@
-import React, { useState , useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,14 @@ import {
   StatusBar,
   Switch,
   Animated,
+  Alert,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Notifications from "expo-notifications";
+import { scheduleTaskNotification } from "../notificationHelper"; // ✅ Import helper
 import {
   useFonts,
   Poppins_400Regular,
@@ -22,45 +25,73 @@ import {
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
 
+// 🟢 Configure how in-app notifications appear
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function AddTaskScreen({ navigation, route }) {
   const { tasks, saveTasks } = route.params;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState(null);
-  const [dueDateTime, setDueDateTime] = useState(null); // store date+time
+  const [dueDateTime, setDueDateTime] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState("date"); // date or time
+  const [pickerMode, setPickerMode] = useState("date");
   const [reminder, setReminder] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  let [fontsLoaded] = useFonts({
+
+  // 🧠 Load fonts
+  const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
 
-  if (!fontsLoaded) return null;
+  // 🔔 Request permission once
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      setNotificationPermission(status === "granted");
+    })();
+  }, []);
+
+  // 🧩 Wait for fonts
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Loading fonts...</Text>
+      </View>
+    );
+  }
 
   const triggerShake = () => {
-      shakeAnim.setValue(0);
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-      ]).start();
-    };
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: "Images",
       allowsEditing: true,
       quality: 1,
     });
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  const handleAddTask = () => {
+  // 🧠 Add Task
+  const handleAddTask = async () => {
     if (title.trim().length === 0) {
       triggerShake();
       return;
@@ -72,12 +103,25 @@ export default function AddTaskScreen({ navigation, route }) {
       title,
       description,
       image,
-      dueDateTime: dueDateTime ? dueDateTime.toISOString() : currentDateTime.toISOString(),
+      dueDateTime: dueDateTime
+        ? dueDateTime.toISOString()
+        : currentDateTime.toISOString(),
       completed: false,
-      reminder: reminder,
+      reminder,
     };
 
+    // 🧠 Save locally
     saveTasks([newTask, ...tasks]);
+
+    // 🔔 Schedule notification if reminder is ON
+    if (reminder && dueDateTime) {
+      if (!notificationPermission) {
+        Alert.alert("Permission required", "Enable notifications to get reminders.");
+      } else {
+        await scheduleTaskNotification(newTask); // ✅ Call helper instead of inline code
+      }
+    }
+
     navigation.goBack();
   };
 
@@ -110,26 +154,30 @@ export default function AddTaskScreen({ navigation, route }) {
     }
   };
 
+  const handleReminderToggle = (value) => {
+    setReminder(value);
+    if (value) {
+      Alert.alert("Set Reminder", "Please choose a date and time.", [
+        { text: "OK", onPress: () => showMode("date") },
+      ]);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar
-        backgroundColor="#f8f9fa" // same as screen background
-        barStyle="dark-content" // dark icons (time, battery, etc.)
-      />
+      <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
       <Text style={styles.heading}>Add New Task</Text>
 
-      {/* Title Input */}
-      <Animated.View style={{transform:[{translateX:shakeAnim}], width:"100%"}}>
-      <TextInput
-        style={styles.input}
-        placeholder="Task title*"
-        placeholderTextColor="#888"
-        value={title}
-        onChangeText={setTitle}
-      />
+      <Animated.View style={{ transform: [{ translateX: shakeAnim }], width: "100%" }}>
+        <TextInput
+          style={styles.input}
+          placeholder="Task title*"
+          placeholderTextColor="#888"
+          value={title}
+          onChangeText={setTitle}
+        />
       </Animated.View>
 
-      {/* Description Input */}
       <TextInput
         style={[styles.input, { height: 80 }]}
         placeholder="Task description"
@@ -139,7 +187,6 @@ export default function AddTaskScreen({ navigation, route }) {
         multiline
       />
 
-      {/* Image Picker */}
       <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
         {image ? (
           <Image source={{ uri: image }} style={styles.imagePreview} />
@@ -149,27 +196,16 @@ export default function AddTaskScreen({ navigation, route }) {
         <Text style={styles.imageText}>Pick Image (optional)</Text>
       </TouchableOpacity>
 
-      {/* Date & Time Picker */}
       <View style={styles.dateTimeRow}>
         <TouchableOpacity style={styles.datePicker} onPress={() => showMode("date")}>
-          <Ionicons
-            name="calendar-outline"
-            size={24}
-            color="#555"
-            style={{ marginRight: 8 }}
-          />
+          <Ionicons name="calendar-outline" size={24} color="#555" style={{ marginRight: 8 }} />
           <Text style={styles.dateText}>
             {dueDateTime ? dueDateTime.toLocaleDateString() : "Pick Date"}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.datePicker} onPress={() => showMode("time")}>
-          <Ionicons
-            name="time-outline"
-            size={24}
-            color="#555"
-            style={{ marginRight: 8 }}
-          />
+          <Ionicons name="time-outline" size={24} color="#555" style={{ marginRight: 8 }} />
           <Text style={styles.dateText}>
             {dueDateTime
               ? dueDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -187,18 +223,15 @@ export default function AddTaskScreen({ navigation, route }) {
         />
       )}
 
-      {/* Reminder Toggle */}
       <View style={styles.reminderRow}>
         <Text style={styles.reminderText}>Set Reminder</Text>
-        <Switch value={reminder} onValueChange={setReminder} />
+        <Switch value={reminder} onValueChange={handleReminderToggle} />
       </View>
 
-      {/* Add Button */}
       <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
         <Text style={styles.addButtonText}>Add Task</Text>
       </TouchableOpacity>
 
-      {/* Cancel Button */}
       <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
         <Text style={styles.cancelText}>Cancel</Text>
       </TouchableOpacity>
@@ -208,11 +241,7 @@ export default function AddTaskScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#f8f9fa" },
-  heading: {
-    fontSize: 26,
-    fontFamily: "Poppins_700Bold",
-    marginBottom: 20,
-  },
+  heading: { fontSize: 26, fontFamily: "Poppins_700Bold", marginBottom: 20 },
   input: {
     width: "100%",
     borderWidth: 1,
@@ -222,11 +251,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontFamily: "Poppins_400Regular",
   },
-  imagePicker: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
+  imagePicker: { justifyContent: "center", alignItems: "center", marginBottom: 20 },
   imagePreview: { width: 100, height: 100, borderRadius: 10 },
   imageText: { marginTop: 5, fontFamily: "Poppins_400Regular" },
   dateTimeRow: { flexDirection: "row", justifyContent: "space-between" },
@@ -256,11 +281,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "Poppins_600SemiBold",
-  },
+  addButtonText: { color: "#fff", fontSize: 16, fontFamily: "Poppins_600SemiBold" },
   cancelButton: { alignItems: "center", paddingVertical: 10 },
   cancelText: { fontFamily: "Poppins_400Regular", fontSize: 16 },
 });

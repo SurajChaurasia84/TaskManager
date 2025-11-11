@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView , useSafeAreaInsets} from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useFonts,
   Poppins_400Regular,
@@ -19,9 +19,11 @@ import {
 } from "@expo-google-fonts/poppins";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
+import { scheduleTaskNotification, cancelNotificationById } from "../notificationHelper"
 
 export default function ViewTaskScreen({ route, navigation }) {
-  const { task, saveTasks, tasks } = route.params;
+  const { task: routeTask, taskId, saveTasks, tasks } = route.params || {};
+  const [task, setTask] = useState(routeTask || null);
   const insets = useSafeAreaInsets();
   const [reminder, setReminder] = useState(task.reminder);
   const [modalVisible, setModalVisible] = useState(false);
@@ -31,8 +33,14 @@ export default function ViewTaskScreen({ route, navigation }) {
   const [description, setDescription] = useState(task.description || "");
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
   const viewRef = useRef();
+
+  useEffect(() => {
+    if (!task && taskId && Array.isArray(tasks)) {
+      const t = tasks.find(t => t.id === taskId);
+      if (t) setTask(t);
+    }
+  }, [taskId, task, tasks]);
 
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -41,23 +49,23 @@ export default function ViewTaskScreen({ route, navigation }) {
   if (!fontsLoaded) return null;
 
   const saveEdits = () => {
-  if (!Array.isArray(tasks)) return;
+    if (!Array.isArray(tasks)) return;
 
-  const updatedTasks = tasks.map((t) =>
-    t.id === task.id ? { ...t, title, description } : t
-  );
+    const updatedTasks = tasks.map((t) =>
+      t.id === task.id ? { ...t, title, description } : t
+    );
 
-  saveTasks(updatedTasks);
+    saveTasks(updatedTasks);
 
-  const updatedTask = updatedTasks.find((t) => t.id === task.id);
-  if (updatedTask) {
-    setTitle(updatedTask.title);
-    setDescription(updatedTask.description || "");
-  }
+    const updatedTask = updatedTasks.find((t) => t.id === task.id);
+    if (updatedTask) {
+      setTitle(updatedTask.title);
+      setDescription(updatedTask.description || "");
+    }
 
-  setEditing(false);
-  setShowDiscardModal(false);
-};
+    setEditing(false);
+    setShowDiscardModal(false);
+  };
 
 
   const discardEdits = () => {
@@ -75,12 +83,25 @@ export default function ViewTaskScreen({ route, navigation }) {
     }
   };
 
-  const toggleReminder = () => {
-    const updatedTasks = tasks.map((t) =>
-      t.id === task.id ? { ...t, reminder: !reminder } : t
-    );
+  const toggleReminder = async () => {
+    const updatedTasks = tasks.map((t) => {
+      if (t.id === task.id) {
+        return { ...t, reminder: !reminder };
+      }
+      return t;
+    });
     saveTasks(updatedTasks);
     setReminder(!reminder);
+
+    if (!reminder) {
+      // Turning ON reminder
+      await scheduleTaskNotification({ ...task, reminder: true });
+    } else {
+      // Turning OFF reminder
+      if (task.notificationId) {
+        await cancelNotificationById(task.notificationId);
+      }
+    }
   };
 
   const handleShare = async () => {
@@ -103,7 +124,7 @@ export default function ViewTaskScreen({ route, navigation }) {
   };
 
   const confirmDelete = () => {
-    if(!Array.isArray(tasks))
+    if (!Array.isArray(tasks))
       return;
     const updatedTasks = tasks.filter((t) => t.id !== task.id);
     saveTasks(updatedTasks);
@@ -165,7 +186,7 @@ export default function ViewTaskScreen({ route, navigation }) {
         {task.image && (
           <Image
             source={{ uri: task.image }}
-            style={{ width: "100%", height:200, marginTop: 15, borderRadius: 10 }}
+            style={{ width: "100%", height: 200, marginTop: 15, borderRadius: 10 }}
             resizeMode="cover"
           />
         )}
@@ -175,7 +196,7 @@ export default function ViewTaskScreen({ route, navigation }) {
       {/* Fixed Bottom Action Bar */}
       <View style={[
         styles.actionBar
-        ]}>
+      ]}>
         <TouchableOpacity style={styles.actionButton} onPress={() => setEditing(!editing)}>
           <Ionicons name="create-outline" size={24} color="#9580FA" />
           <Text style={styles.actionText}>{editing ? "Cancel" : "Edit"}</Text>

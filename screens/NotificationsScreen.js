@@ -8,6 +8,7 @@ import {
   StatusBar,
   RefreshControl,
 } from "react-native";
+import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,12 +31,21 @@ export default function NotificationsScreen({ navigation }) {
   useEffect(() => {
     loadTasks();
 
-    // Reload tasks on screen focus
     const unsubscribe = navigation.addListener("focus", () => {
       loadTasks();
     });
-    return unsubscribe;
+
+    // 👇 Listen for when a notification is tapped
+    const subscription = Notifications.addNotificationResponseReceivedListener(() => {
+      loadTasks();
+    });
+
+    return () => {
+      unsubscribe();
+      subscription.remove();
+    };
   }, [navigation]);
+
 
   const loadTasks = async () => {
     const stored = await AsyncStorage.getItem("tasks");
@@ -120,17 +130,16 @@ export default function NotificationsScreen({ navigation }) {
                 {(item.description || "No description").toString()}
               </Text>
               <Text style={styles.reminderTime}>
-                {new Date(item.dueDateTime)
-                  .toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                  .toString()}
+                {new Date(item.dueDateTime).toLocaleString(undefined, {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
                 <Feather name="chevron-right" />
               </Text>
+
             </TouchableOpacity>
           )}
         />
