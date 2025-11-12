@@ -63,7 +63,7 @@ function DrawerNavigator() {
         headerShown: false,
         drawerStyle: { backgroundColor: "#f5f6fa", width: 240 },
         drawerLabelStyle: { fontFamily: "Poppins_600SemiBold", fontSize: 16 },
-        drawerActiveTintColor: "tomato",
+        // drawerActiveTintColor: "tomato",
       }}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
     >

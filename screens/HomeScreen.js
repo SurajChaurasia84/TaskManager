@@ -88,21 +88,6 @@ export default function HomeScreen({ navigation }) {
       t.id === task.id ? { ...t, reminder: !t.reminder } : t
     );
     saveTasks(updatedTasks);
-
-    if (!task.reminder && task.dueDateTime) {
-      try {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Task Reminder ⏰",
-            body: `Don't forget: ${task.title}`,
-            sound: true,
-          },
-          trigger: new Date(task.dueDateTime),
-        });
-      } catch (e) {
-        console.log("Notification schedule error:", e);
-      }
-    }
   };
 
   if (!fontsLoaded) return null;

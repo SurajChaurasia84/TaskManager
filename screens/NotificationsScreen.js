@@ -51,23 +51,37 @@ export default function NotificationsScreen({ navigation }) {
     const stored = await AsyncStorage.getItem("tasks");
     if (stored) {
       let allTasks = JSON.parse(stored);
-
       const now = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
 
-      // Keep only tasks with reminder=true and dueDateTime within last 7 days
+      for (let task of allTasks) {
+        if (task.completed && task.notificationId) {
+          try {
+            await Notifications.cancelScheduledNotificationAsync(task.notificationId);
+            task.notificationId = null; // cleanup ID
+          } catch (e) {
+            console.log("Error canceling notification:", e);
+          }
+        }
+      }
+
       const upcoming = allTasks
         .filter(
           (t) =>
             t.reminder &&
+            !t.completed &&
             t.dueDateTime &&
-            new Date(t.dueDateTime) > sevenDaysAgo
+            new Date(t.dueDateTime) > now
         )
         .sort((a, b) => new Date(a.dueDateTime) - new Date(b.dueDateTime));
 
+      // ✅ Update AsyncStorage (cleanup cancelled notifications)
+      await AsyncStorage.setItem("tasks", JSON.stringify(allTasks));
+
       setUpcomingReminders(upcoming);
       setTasks(allTasks);
+    } else {
+      setUpcomingReminders([]);
+      setTasks([]);
     }
   };
 
